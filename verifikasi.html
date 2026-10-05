@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verifikasi SK — Kelurahan Pager</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{display:flex;justify-content:center;padding:24px 14px;background:var(--bg);}
+  .vbox{width:100%;max-width:560px;}
+  .vhead{display:flex;gap:12px;align-items:center;margin-bottom:16px;}
+  .vhead img{width:52px;height:52px;}
+  .vhead h1{font-size:18px;margin:0;color:var(--maroon);} .vhead p{margin:2px 0 0;font-size:12.5px;color:var(--text-muted);}
+  .vres{border-radius:var(--radius);padding:16px;margin-top:14px;font-size:14px;line-height:1.55;}
+  .vres.ok{background:var(--ok-bg);border:1px solid var(--ok);} .vres.bad{background:var(--danger-bg);border:1px solid var(--danger);}
+  .vres h2{margin:0 0 8px;font-size:16px;} .vres dl{margin:0;display:grid;grid-template-columns:130px 1fr;gap:6px 10px;}
+  .vres dt{color:var(--text-muted);} .vres dd{margin:0;font-weight:600;word-break:break-word;}
+  .vform{display:flex;gap:8px;} .vform input{flex:1;text-transform:uppercase;letter-spacing:1px;}
+  .vfoot{font-size:11.5px;color:var(--text-faint);margin-top:18px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="vbox">
+  <div class="vhead"><img src="assets/logo.png" alt="logo"><div><h1>Verifikasi Keaslian SK</h1><p>Kelurahan Pager · Kecamatan Rakumpit · Kota Palangka Raya</p></div></div>
+  <div class="card">
+    <div class="vform">
+      <input id="kode" maxlength="10" placeholder="Kode verifikasi (10 karakter)" autocomplete="off">
+      <button class="btn btn-primary" id="btn" onclick="cek()">Periksa</button>
+    </div>
+    <div id="out"></div>
+  </div>
+  <div class="vfoot">Kode ada di bagian bawah setiap halaman SK, atau pindai kode QR pada dokumen. Hanya data ringkas yang ditampilkan.<br>Penata Kelola Sistem dan Teknologi Informasi Kelurahan Pager &middot; <b>MEMET HARIYADI CHRISTIAN &copy;2026</b><br> Kode verifikasi ini adalah jejak audit internal sistem SIPAKEM, bukan tanda tangan elektronik tersertifikasi PSrE.</div>
+</div>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function tgl(iso){ try{ return new Date(iso).toLocaleString('id-ID',{dateStyle:'long',timeStyle:'short'}); }catch(e){ return iso||'-'; } }
+async function cek(){
+  const kode = $('kode').value.trim().toUpperCase();
+  const out = $('out');
+  if(!/^[A-F0-9]{10}$/.test(kode)){ out.innerHTML = '<div class="vres bad"><h2>Format kode tidak valid</h2>Kode terdiri dari 10 karakter huruf A–F dan angka 0–9.</div>'; return; }
+  $('btn').disabled = true; out.innerHTML = '<div class="small-muted" style="margin-top:12px">Memeriksa...</div>';
+  try{
+    const r = await Api.verify(kode);
+    if(!r.valid){ out.innerHTML = '<div class="vres bad"><h2>✖ Kode tidak ditemukan</h2>Kode <b>'+esc(kode)+'</b> tidak terdaftar atau SK telah dicabut/dihapus. Dokumen ini tidak dapat dipastikan keasliannya.</div>'; return; }
+    out.innerHTML = '<div class="vres ok"><h2>✔ SK terdaftar &amp; sah tercatat</h2><dl>'+
+      '<dt>Nomor</dt><dd>'+esc(r.nomor)+'/'+esc(r.tahun)+'</dd>'+
+      '<dt>Tentang</dt><dd>'+esc(r.tentang)+'</dd>'+
+      '<dt>Instansi</dt><dd>'+esc(r.instansi||'-')+'</dd>'+
+      '<dt>Penandatangan</dt><dd>'+esc(r.penandatangan||'-')+'<br><span style="font-weight:400">'+esc(r.jabatan||'')+'</span></dd>'+
+      '<dt>Diterbitkan</dt><dd>'+esc(tgl(r.diterbitkan))+'</dd>'+
+      '<dt>Jenis TTE</dt><dd>'+(r.tte==='bsre'?'Sertifikat elektronik BSrE-BSSN':(r.tte==='bsre_pending'?'Menunggu penandatanganan BSrE':'Internal (jejak audit)'))+'</dd>'+
+      '<dt>Kode</dt><dd>'+esc(r.kode)+'</dd></dl></div>';
+  }catch(e){
+    out.innerHTML = '<div class="vres bad"><h2>Tidak dapat memeriksa</h2>'+esc(Api.msg(e))+'</div>';
+  }finally{ $('btn').disabled = false; }
+}
+$('kode').addEventListener('keydown', e=>{ if(e.key==='Enter') cek(); });
+(function(){
+  const k = new URLSearchParams(location.search).get('kode');
+  if(!Api.configured()){ $('out').innerHTML='<div class="vres bad"><h2>Belum dikonfigurasi</h2>API_URL belum diisi pada js/config.js.</div>'; $('btn').disabled=true; return; }
+  if(k){ $('kode').value = k; cek(); }
+})();
+</script>
+</body>
+</html>

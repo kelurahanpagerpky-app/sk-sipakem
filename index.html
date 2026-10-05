@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIPAKEM Kelurahan Pager — SK Digital</title>
+<meta name="description" content="Sistem Penyusunan &amp; Arsip Keputusan Elektronik Kelurahan Pager, Kecamatan Rakumpit, Kota Palangka Raya.">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="loginScreen">
+  <div class="theme-toggle" id="loginThemeToggle" onclick="toggleTheme()"><span class="tt-icon" id="loginThemeIcon">☀</span></div>
+  <div class="login-card">
+    <div class="login-head">
+      <img src="assets/logo.png" alt="logo">
+      <div>
+        <div class="t1">SIPAKEM</div>
+        <div class="t2">Sistem Penyusunan &amp; Arsip<br>Keputusan Elektronik<br><b>Kelurahan Pager</b></div>
+      </div>
+    </div>
+    <div class="login-body">
+      <div class="notice hidden" id="configWarn"><b>Aplikasi belum terhubung ke database.</b> Isi <code>API_URL</code> pada file <code>js/config.js</code> dengan URL Web App Google Apps Script (lihat README.md).</div>
+      <div class="login-error" id="loginError"></div>
+      <div class="field">
+        <label>Nama Pengguna</label>
+        <input id="loginUser" type="text" placeholder="mis. admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Kata Sandi</label>
+        <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Masuk</button>
+      <div class="login-hint">
+        Kelurahan Pager · Kecamatan Rakumpit · Kota Palangka Raya<br>
+        Lupa kata sandi? Hubungi administrator sistem.
+        <div class="app-credit">Penata Kelola Sistem dan Teknologi Informasi Kelurahan Pager<br><b>MEMET HARIYADI CHRISTIAN &copy;2026</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app">
+<div class="shell">
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/logo.png" alt="logo">
+      <div>SIPAKEM<small>SK Digital Kel. Pager</small></div>
+    </div>
+    <div class="nav" id="navList"></div>
+    <div class="sidebar-user">
+      <div class="u1" id="sbUserName">-</div>
+      <div class="u2" id="sbUserRole">-</div>
+      <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:6px" onclick="openPwModal(false)">Ubah kata sandi</button>
+      <button class="btn btn-outline btn-sm" style="width:100%" onclick="doLogout()">Keluar</button>
+      <div class="app-credit">Penata Kelola Sistem dan Teknologi Informasi Kelurahan Pager<br><b>MEMET HARIYADI CHRISTIAN &copy;2026</b></div>
+      <div class="theme-toggle" id="sidebarThemeToggle" onclick="toggleTheme()">
+        <span class="tt-icon" id="sidebarThemeIcon">☀</span><span class="tt-label" id="sidebarThemeLabel">Mode Terang</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view" id="view-dashboard">
+      <div class="topbar"><div><h2>Dasbor</h2><p>Ringkasan aktivitas penyusunan Surat Keputusan.</p></div></div>
+      <div class="stat-row">
+        <div class="stat"><div class="n" id="stDocs">0</div><div class="l">Total SK dibuat</div></div>
+        <div class="stat"><div class="n" id="stSigned">0</div><div class="l">Sudah ditandatangani (TTE)</div></div>
+        <div class="stat"><div class="n" id="stTpl">0</div><div class="l">Template tersedia</div></div>
+        <div class="stat"><div class="n" id="stKop">0</div><div class="l">Kop surat / instansi</div></div>
+      </div>
+      <div class="card">
+        <h3>Mulai cepat</h3>
+        <div class="actions-row">
+          <button class="btn btn-primary" onclick="goto('buat')">+ Buat SK Baru</button>
+          <button class="btn btn-outline" onclick="goto('riwayat')">Lihat Riwayat SK</button>
+          <button class="btn btn-outline" onclick="goto('tte')">Atur Tanda Tangan Elektronik</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>SK terbaru</h3>
+        <table id="dashRecentTable"><thead><tr><th>Nomor</th><th>Tentang</th><th>Kop</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- BUAT SK -->
+    <div class="view" id="view-buat">
+      <div class="topbar">
+        <div><h2>Buat Surat Keputusan</h2><p>Pilih kop surat &amp; template, isi data, lalu terbitkan sebagai PDF bertanda tangan elektronik.</p></div>
+        <div><button class="btn btn-ghost btn-sm" onclick="resetSkForm(true)">↺ Formulir baru</button></div>
+      </div>
+
+      <div class="card">
+        <h3>1 — Pilih Kop Surat</h3>
+        <div class="kop-select-card" id="kopPickList"></div>
+      </div>
+
+      <div class="card">
+        <h3>2 — Pilih Template</h3>
+        <div class="tpl-grid" id="tplPickList"></div>
+      </div>
+
+      <div class="card">
+        <h3>3 — Data Keputusan</h3>
+        <div class="grid3">
+          <div class="field"><label>Nomor SK</label><input id="f_nomor" placeholder="mis. 09"><div class="small-muted" id="nomorHint" style="margin-top:4px"></div></div>
+          <div class="field"><label>Tahun</label><input id="f_tahun" placeholder="2026"></div>
+          <div class="field"><label>Jabatan Penetap (kop)</label><input id="f_jabatanKop" placeholder="mis. LURAH PAGER"></div>
+        </div>
+        <div class="field"><label>Tentang (judul keputusan)</label><input id="f_tentang" placeholder="mis. PENGURUS MASYARAKAT PEDULI API (MPA) KELURAHAN PAGER TAHUN 2026"></div>
+        <div class="grid3">
+          <div class="field"><label>Ditetapkan di</label><input id="f_ditetapkanDi" placeholder="mis. Pager"></div>
+          <div class="field"><label>Pada tanggal</label><input id="f_tanggal" type="date"></div>
+          <div class="field"><label>&nbsp;</label><div class="small-muted">Tanggal ditampilkan otomatis dalam format Indonesia pada dokumen.</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>4 — Menimbang</h3>
+        <div class="list-editor" id="menimbangEditor"></div>
+        <button class="btn btn-outline btn-sm" onclick="addListItem('menimbang')">+ Tambah poin</button>
+      </div>
+
+      <div class="card">
+        <h3>5 — Mengingat</h3>
+        <div class="list-editor" id="mengingatEditor"></div>
+        <button class="btn btn-outline btn-sm" onclick="addListItem('mengingat')">+ Tambah dasar hukum</button>
+      </div>
+
+      <div class="card">
+        <h3>6 — Memperhatikan <span class="small-muted" style="font-weight:400;">(opsional)</span></h3>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;margin-bottom:12px;">
+          <input type="checkbox" id="f_hasMemperhatikan" onchange="toggleMemperhatikan()"> Sertakan bagian Memperhatikan (di bawah Mengingat, sebelum Memutuskan)
+        </label>
+        <div id="memperhatikanEditorWrap" class="hidden">
+          <div class="list-editor" id="memperhatikanEditor"></div>
+          <button class="btn btn-outline btn-sm" onclick="addListItem('memperhatikan')">+ Tambah poin</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>7 — Memutuskan / Menetapkan</h3>
+        <div class="field"><label>Isian di samping “Menetapkan :” <span class="small-muted" style="font-weight:400">(opsional — boleh dikosongkan)</span></label>
+          <textarea id="f_menetapkan" rows="2" placeholder="mis. KEPUTUSAN LURAH PAGER TENTANG ... (kosongkan jika tidak diperlukan)"></textarea></div>
+        <div id="diktumEditor"></div>
+        <button class="btn btn-outline btn-sm" onclick="addDiktum()">+ Tambah diktum</button>
+      </div>
+
+      <div class="card">
+        <h3>8 — Penandatangan</h3>
+        <div class="grid3">
+          <div class="field"><label>Jabatan penandatangan</label><input id="f_ttdJabatan" placeholder="mis. LURAH PAGER"></div>
+          <div class="field"><label>Nama lengkap &amp; gelar</label><input id="f_ttdNama" placeholder="nama lengkap & gelar"></div>
+          <div class="field"><label>NIP</label><input id="f_ttdNip" placeholder="NIP 18 digit"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>9 — Tembusan</h3>
+        <div class="list-editor" id="tembusanEditor"></div>
+        <button class="btn btn-outline btn-sm" onclick="addListItem('tembusan')">+ Tambah tujuan tembusan</button>
+      </div>
+
+      <div class="card">
+        <h3>10 — Lampiran <span class="small-muted" style="font-weight:400;">(opsional — editor tabel seperti Word)</span></h3>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;margin-bottom:12px;">
+          <input type="checkbox" id="f_hasLampiran" onchange="toggleLampiran()"> Sertakan halaman lampiran
+        </label>
+        <div id="lampiranEditorWrap" class="hidden">
+          <div class="field"><label>Judul lampiran</label><input id="f_lampJudul" placeholder="Otomatis dari nomor & tanggal SK jika dikosongkan"></div>
+          <div class="lamp-table-wrap">
+            <table class="lamp-table" id="lampTable"></table>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-outline btn-sm" onclick="lampAddRow()">+ Baris</button>
+            <button class="btn btn-outline btn-sm" onclick="lampAddCol()">+ Kolom</button>
+            <button class="btn btn-ghost btn-sm" onclick="lampRemoveCol()">− Kolom terakhir</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Pratinjau Dokumen</h3>
+        <div class="doc-shell"><div id="previewMount"></div></div>
+      </div>
+
+      <div class="actions-row" style="margin-bottom:40px;">
+        <button class="btn btn-outline" onclick="saveDraft()">💾 Simpan sebagai draf</button>
+        <button class="btn btn-gold" onclick="openTteConfirm()">✅ Terbitkan PDF &amp; Tanda Tangani Elektronik</button>
+      </div>
+    </div>
+
+    <!-- RIWAYAT -->
+    <div class="view" id="view-riwayat">
+      <div class="topbar"><div><h2>Riwayat SK</h2><p>Semua Surat Keputusan Kelurahan Pager yang tersimpan di database (Google Sheets).</p></div>
+        <div><button class="btn btn-outline btn-sm" onclick="reloadFromServer()">⟳ Segarkan</button></div></div>
+      <div class="card">
+        <div class="actions-row" style="margin-bottom:12px">
+          <input id="riwayatSearch" placeholder="Cari nomor, judul, atau kode verifikasi..." oninput="renderRiwayat()" style="flex:1;min-width:200px">
+          <select id="riwayatStatus" onchange="renderRiwayat()"><option value="">Semua status</option><option value="signed">Ditandatangani</option><option value="draft">Draf</option></select>
+        </div>
+        <table id="riwayatTable"><thead><tr><th>Nomor / Tahun</th><th>Tentang</th><th>Kop</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody></tbody></table>
+        <div class="empty-state hidden" id="riwayatEmpty"><div class="e-i">📄</div>Belum ada SK yang dibuat.</div>
+      </div>
+    </div>
+
+    <!-- KELOLA KOP -->
+    <div class="view" id="view-kop">
+      <div class="topbar"><div><h2>Kelola Kop Surat</h2><p>Setiap instansi/kelurahan dapat memiliki kop, logo, dan pejabat penetap sendiri.</p></div>
+        <div><button class="btn btn-primary btn-sm" onclick="openKopForm()">+ Kop baru</button></div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Instansi</th><th>Kecamatan / Kelurahan</th><th>Pejabat</th><th>Aksi</th></tr></thead><tbody id="kopTableBody"></tbody></table>
+      </div>
+      <div class="card hidden" id="kopFormCard">
+        <h3 id="kopFormTitle">Kop Surat Baru</h3>
+        <div class="grid2">
+          <div class="field"><label>Baris 1 (mis. PEMERINTAH KOTA PALANGKA RAYA)</label><input id="kf_pemerintah"></div>
+          <div class="field"><label>Baris 2 — Kecamatan</label><input id="kf_kecamatan"></div>
+          <div class="field"><label>Baris 3 — Kelurahan / Instansi</label><input id="kf_kelurahan"></div>
+          <div class="field"><label>Kode pos</label><input id="kf_kodepos"></div>
+          <div class="field"><label>Alamat</label><input id="kf_alamat"></div>
+          <div class="field"><label>Laman (opsional)</label><input id="kf_laman"></div>
+          <div class="field"><label>Email (opsional)</label><input id="kf_email"></div>
+          <div class="field"><label>Jabatan kepala (default)</label><input id="kf_jabatanKepala" placeholder="mis. LURAH PAGER"></div>
+          <div class="field"><label>Nama kepala (default)</label><input id="kf_namaKepala"></div>
+          <div class="field"><label>NIP kepala (default)</label><input id="kf_nipKepala"></div>
+        </div>
+        <div class="field">
+          <label>Logo / lambang</label>
+          <div class="upload-box" onclick="document.getElementById('kf_logoFile').click()">
+            <img id="kf_logoPreview" src="assets/logo.png"><br>
+            Klik untuk mengganti logo (PNG transparan disarankan)
+          </div>
+          <input type="file" id="kf_logoFile" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
+        </div>
+        <div class="actions-row">
+          <button class="btn btn-primary" onclick="saveKop()">Simpan Kop</button>
+          <button class="btn btn-ghost" onclick="closeKopForm()">Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KELOLA TEMPLATE -->
+    <div class="view" id="view-template">
+      <div class="topbar"><div><h2>Kelola Template SK</h2><p>Susunan Menimbang / Mengingat / Diktum / Tembusan baku agar setiap SK konsisten strukturnya.</p></div>
+        <div><button class="btn btn-primary btn-sm" onclick="openTplForm()">+ Template baru</button></div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Nama Template</th><th>Kategori</th><th>Poin</th><th>Aksi</th></tr></thead><tbody id="tplTableBody"></tbody></table>
+      </div>
+      <div class="card hidden" id="tplFormCard">
+        <h3 id="tplFormTitle">Template Baru</h3>
+        <div class="grid2">
+          <div class="field"><label>Nama template</label><input id="tf_nama"></div>
+          <div class="field"><label>Kategori</label>
+            <select id="tf_kategori">
+              <option>Pembentukan Tim / Satgas / Kepengurusan</option>
+              <option>Pengangkatan / Penunjukan Petugas</option>
+              <option>Penetapan Kebijakan / Program Kerja</option>
+              <option>Umum / Kosong</option>
+            </select>
+          </div>
+        </div>
+        <h4>Menimbang (default)</h4>
+        <div class="list-editor" id="tf_menimbang"></div>
+        <button class="btn btn-outline btn-sm" onclick="tplAddListItem('menimbang')">+ Poin</button>
+        <h4 style="margin-top:16px;">Mengingat (default)</h4>
+        <div class="list-editor" id="tf_mengingat"></div>
+        <button class="btn btn-outline btn-sm" onclick="tplAddListItem('mengingat')">+ Poin</button>
+        <h4 style="margin-top:16px;">Diktum (default)</h4>
+        <div id="tf_diktum"></div>
+        <button class="btn btn-outline btn-sm" onclick="tplAddDiktum()">+ Diktum</button>
+        <h4 style="margin-top:16px;">Tembusan (default)</h4>
+        <div class="list-editor" id="tf_tembusan"></div>
+        <button class="btn btn-outline btn-sm" onclick="tplAddListItem('tembusan')">+ Tujuan</button>
+        <div class="actions-row">
+          <button class="btn btn-primary" onclick="saveTpl()">Simpan Template</button>
+          <button class="btn btn-ghost" onclick="closeTplForm()">Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TTE -->
+    <div class="view" id="view-tte">
+      <div class="topbar"><div><h2>Tanda Tangan Elektronik (TTE)</h2><p>Atur tanda tangan yang akan otomatis ditempelkan saat menerbitkan PDF.</p></div></div>
+      <div class="card">
+        <h3>Tanda tangan elektronik tersertifikasi (BSrE-BSSN)</h3>
+        <div id="bsreStatusInfo" class="small-muted"></div>
+        <p class="small-muted" style="margin-top:8px;">Dengan BSrE aktif, PDF ditandatangani menggunakan sertifikat elektronik pejabat penandatangan yang terdaftar di BSrE (memerlukan NIK &amp; passphrase). Tanpa BSrE, gambar tanda tangan di bawah dan kode verifikasi/QR hanya berfungsi sebagai <b>jejak audit internal</b> dan <b>bukan</b> tanda tangan elektronik tersertifikasi menurut UU ITE &amp; PP 71/2019.</p>
+      </div>
+      <div class="card hidden" id="bsreVerifyCard">
+        <h3>Periksa keabsahan PDF bertanda tangan BSrE</h3>
+        <div class="upload-box" onclick="document.getElementById('bsreVerifyFile').click()">Klik untuk memilih PDF (maks. 9 MB)</div>
+        <input type="file" id="bsreVerifyFile" accept="application/pdf" class="hidden" onchange="verifyPdfBsre(event)">
+        <pre id="bsreVerifyOut" class="small-muted" style="white-space:pre-wrap;word-break:break-word;margin-top:10px;"></pre>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3>Gambar tanda tangan</h3>
+          <div class="sigpad-wrap">
+            <canvas id="sigCanvas"></canvas>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-outline btn-sm" onclick="clearSigCanvas()">Bersihkan</button>
+            <button class="btn btn-primary btn-sm" onclick="saveSignatureFromCanvas()">Simpan tanda tangan ini</button>
+          </div>
+          <p class="small-muted" style="margin-top:10px;">Atau unggah gambar tanda tangan (PNG latar transparan):</p>
+          <div class="upload-box" onclick="document.getElementById('sigFile').click()">Klik untuk unggah file tanda tangan</div>
+          <input type="file" id="sigFile" accept="image/*" class="hidden" onchange="handleSigUpload(event)">
+        </div>
+        <div class="card">
+          <h3>Pratinjau tanda tangan tersimpan</h3>
+          <div id="sigSavedPreview" class="small-muted">Belum ada tanda tangan tersimpan untuk akun ini.</div>
+          <p class="small-muted" style="margin-top:14px;">Gambar tanda tangan ini tetap ditampilkan pada PDF (paraf visual). Gambar akan ditempelkan otomatis di kolom tanda tangan (di atas nama &amp; NIP) saat Anda menerbitkan PDF. Kode verifikasi &amp; QR tetap ditampilkan terpisah di bagian bawah halaman.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- KELOLA PENGGUNA (admin) -->
+    <div class="view" id="view-users">
+      <div class="topbar"><div><h2>Kelola Pengguna</h2><p>Akun yang dapat masuk &amp; menerbitkan SK atas nama mereka.</p></div>
+        <div><button class="btn btn-primary btn-sm" onclick="openUserForm()">+ Pengguna baru</button></div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Nama pengguna</th><th>Nama lengkap</th><th>Peran</th><th>Aksi</th></tr></thead><tbody id="userTableBody"></tbody></table>
+      </div>
+      <div class="card hidden" id="userFormCard">
+        <h3>Pengguna Baru</h3>
+        <div class="grid3">
+          <div class="field"><label>Nama pengguna</label><input id="uf_username"></div>
+          <div class="field"><label>Kata sandi sementara (min. 8 karakter)</label><input id="uf_password" autocomplete="off"></div>
+          <div class="field"><label>Nama lengkap</label><input id="uf_nama"></div>
+        </div>
+        <div class="field"><label>Peran</label>
+          <select id="uf_role"><option value="staff">Staf (buat &amp; TTE SK)</option><option value="admin">Admin (akses penuh)</option></select>
+        </div>
+        <div class="actions-row">
+          <button class="btn btn-primary" onclick="saveUser()">Simpan Pengguna</button>
+          <button class="btn btn-ghost" onclick="closeUserForm()">Batal</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- hidden render zone used only for PDF capture -->
+<div id="pdfRenderZone" style="position:fixed;left:-9999px;top:0;"></div>
+<div id="qrHiddenZone" style="position:fixed;left:-9999px;top:0;"></div>
+<div id="measureZone" style="position:fixed;left:-9999px;top:0;"></div>
+
+<div class="progress-overlay" id="progressOverlay">
+  <div class="progress-box"><div class="spinner"></div><div id="progressText">Memproses...</div></div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="netBanner" class="net-banner">Anda sedang offline — perubahan tidak dapat disimpan sampai koneksi kembali.</div>
+
+<!-- ============ MODAL TTE BSrE ============ -->
+<div class="modal-overlay" id="bsreModal">
+  <div class="modal-box">
+    <h3 id="bsre_title">Tanda Tangan Elektronik BSrE</h3>
+    <div class="notice">Masukkan NIK dan passphrase sertifikat elektronik <b>milik penandatangan</b>. Data ini hanya dikirim sekali untuk proses penandatanganan dan <b>tidak disimpan</b>. Passphrase yang salah berulang kali dapat memblokir akun TTE Anda.</div>
+    <div class="login-error" id="bsreError"></div>
+    <div class="small-muted" id="bsreInfo" style="margin-bottom:8px"></div>
+    <div class="field"><label>NIK penandatangan (16 digit)</label><input id="bsre_nik" inputmode="numeric" maxlength="16" autocomplete="off"></div>
+    <div class="field"><label>Passphrase</label><input id="bsre_pass" type="password" autocomplete="off"></div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="bsreOk">Tandatangani</button>
+      <button class="btn btn-outline btn-sm" type="button" onclick="checkBsreStatus()">Cek status sertifikat</button>
+      <button class="btn btn-ghost" id="bsreCancel">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL UBAH KATA SANDI ============ -->
+<div class="modal-overlay" id="pwModal">
+  <div class="modal-box">
+    <h3>Ubah Kata Sandi</h3>
+    <div class="notice hidden" id="pwForcedNote">Demi keamanan, Anda wajib mengganti kata sandi sementara sebelum melanjutkan.</div>
+    <div class="login-error" id="pwError"></div>
+    <div class="field"><label>Kata sandi lama</label><input id="pw_old" type="password" autocomplete="current-password"></div>
+    <div class="field"><label>Kata sandi baru (min. 8 karakter)</label><input id="pw_new" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>Ulangi kata sandi baru</label><input id="pw_new2" type="password" autocomplete="new-password"></div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="pwSubmit" onclick="submitPwChange()">Simpan</button>
+      <button class="btn btn-ghost" id="pwCancel" onclick="closePwModal()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/logo.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
